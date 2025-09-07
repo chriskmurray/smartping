@@ -4,6 +4,7 @@ __pycache__/
 
 # Ignore SQLite database
 db/*.db
+db/*.db-journal
 
 # Ignore virtual environments
 venv/
