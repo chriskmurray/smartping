@@ -11,6 +11,17 @@ It pings hosts at regular intervals, records results in SQLite, and displays lat
 - Add or remove hosts easily
 - Fully containerized with Docker
 
+## About This Project
+This project was built as a learning portfolio piece. I used AI coding assistants to help accelerate development, while focusing on:
+
+Designing the monitoring approach (ping bursts, median aggregation, data retention)
+
+Understanding the architecture (backend, frontend, database, containers)
+
+Practicing automation and system design skills that apply directly to network engineering work
+
+The goal isn’t to showcase polished software engineering, but to demonstrate how I can apply networking knowledge, automation, and modern tools like AI to quickly build useful systems.
+
 ## Usage
 
 ```bash
