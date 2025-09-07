@@ -1,0 +1,18 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore SQLite database
+db/*.db
+
+# Ignore virtual environments
+venv/
+*.egg-info/
+.env
+
+# Ignore Docker junk
+*.log
+
+# Ignore local editor configs
+.vscode/
+.idea/

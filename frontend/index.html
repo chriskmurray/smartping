@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SmartPing Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f4f6fa;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 30px auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px #0001;
+      padding: 32px 24px 24px 24px;
+    }
+    h1 {
+      text-align: center;
+      color: #2a3a5a;
+      margin-bottom: 24px;
+    }
+    form, .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #b0b8c9;
+      border-radius: 4px;
+      font-size: 1em;
+    }
+    button, select {
+      padding: 8px 14px;
+      border-radius: 4px;
+      border: 1px solid #2a3a5a;
+      background: #2a3a5a;
+      color: #fff;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover, select:hover {
+      background: #3b4a6a;
+    }
+    #deleteHostBtn {
+      background: #e74c3c;
+      border-color: #e74c3c;
+    }
+    #deleteHostBtn:hover {
+      background: #c0392b;
+      border-color: #c0392b;
+    }
+    #statusMsg {
+      color: #c00;
+      margin-top: 8px;
+      min-height: 20px;
+    }
+    .stats {
+      margin: 12px 0 18px 0;
+      display: flex;
+      gap: 32px;
+      font-size: 1.1em;
+      color: #2a3a5a;
+    }
+    .stats span {
+      font-weight: 500;
+    }
+    .host-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    @media (max-width: 600px) {
+      .container { padding: 12px; }
+      .stats { flex-direction: column; gap: 8px; }
+      form, .controls, .host-controls { flex-direction: column; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>SmartPing Dashboard</h1>
+
+    <form id="addHostForm">
+      <input type="text" id="ipInput" placeholder="Enter IP address" required />
+      <button type="submit">Add Host</button>
+    </form>
+
+    <div class="controls">
+      <div class="host-controls">
+        <select id="hostSelect"></select>
+        <button id="deleteHostBtn" class="delete-btn" title="Delete selected host">Delete</button>
+      </div>
+      <select id="rangeSelect">
+        <option value="1h">Last 1 hour</option>
+        <option value="24h" selected>Last 24 hours</option>
+        <option value="7d">Last 7 days</option>
+      </select>
+    </div>
+
+    <div class="stats">
+      <div>Median Latency: <span id="avgLatency">-</span></div>
+      <div>Success Rate: <span id="successRate">-</span></div>
+    </div>
+
+    <canvas id="latencyChart" width="600" height="300"></canvas>
+    <p id="statusMsg"></p>
+  </div>
+
+  <script>
+    const API_BASE = "/api";
+    const hostSelect = document.getElementById("hostSelect");
+    const statusMsg = document.getElementById("statusMsg");
+    const ctx = document.getElementById("latencyChart").getContext("2d");
+    const avgLatency = document.getElementById("avgLatency");
+    const successRate = document.getElementById("successRate");
+    const deleteHostBtn = document.getElementById("deleteHostBtn");
+
+    let chart = new Chart(ctx, {
+      type: 'line',
+      data: { 
+        labels: [], 
+        datasets: [{
+          label: 'Latency (ms)',
+          data: [],
+          borderColor: '#2a3a5a',
+          backgroundColor: 'rgba(42,58,90,0.08)',
+          pointBackgroundColor: [],
+          pointBorderColor: [],
+          pointRadius: 4,
+          pointStyle: 'line',
+          showLine: false
+        }] 
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const idx = context.dataIndex;
+                const val = context.dataset.data[idx];
+                const success = context.dataset.pointBackgroundColor[idx] === "#27ae60";
+                return `Latency: ${val === null ? "timeout" : val.toFixed(1) + " ms"} (${success ? "Success" : "Fail"})`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            title: { display: true, text: "Latency (ms)" },
+            beginAtZero: true,
+            max: 100
+          },
+          x: {
+            title: { display: true, text: "Time" }
+          }
+        }
+      }
+    });
+
+    async function loadHosts() {
+      try {
+        const res = await fetch(`${API_BASE}/hosts`);
+        const hosts = await res.json();
+
+        hostSelect.innerHTML = "";
+        hosts.forEach(h => {
+          const opt = document.createElement("option");
+          opt.value = h[0];
+          opt.text = `${h[1]} (id ${h[0]})`;
+          hostSelect.add(opt);
+        });
+
+        if (hosts.length > 0) {
+          updateChart(hosts[0][0]);
+        } else {
+          chart.data.labels = [];
+          chart.data.datasets[0].data = [];
+          chart.data.datasets[0].pointBackgroundColor = [];
+          chart.data.datasets[0].pointBorderColor = [];
+          chart.update();
+          avgLatency.textContent = "-";
+          successRate.textContent = "-";
+        }
+      } catch (err) {
+        console.error("Failed to load hosts:", err);
+        statusMsg.textContent = "Error loading hosts.";
+      }
+    }
+
+    async function updateChart(hostId) {
+      try {
+        const range = document.getElementById("rangeSelect").value;
+        const res = await fetch(`${API_BASE}/results/${hostId}?range=${range}`);
+        const data = await res.json();
+
+        const results = data.results || [];
+        if (!results || results.length === 0) {
+          statusMsg.textContent = "No results yet.";
+          chart.data.labels = [];
+          chart.data.datasets[0].data = [];
+          chart.data.datasets[0].pointBackgroundColor = [];
+          chart.data.datasets[0].pointBorderColor = [];
+          avgLatency.textContent = "-";
+          successRate.textContent = "-";
+        } else {
+          statusMsg.textContent = "";
+          chart.data.labels = results.map(r => r[0].replace("T", " ").slice(0, 19));
+          chart.data.datasets[0].data = results.map(r => r[1]); // already ms
+          chart.data.datasets[0].pointBackgroundColor = results.map(r => r[2] ? "#27ae60" : "#e74c3c");
+          chart.data.datasets[0].pointBorderColor = results.map(r => r[2] ? "#27ae60" : "#e74c3c");
+          avgLatency.textContent = data.avg_latency !== null ? data.avg_latency.toFixed(1) + " ms" : "-";
+          successRate.textContent = data.success_rate !== null ? (data.success_rate * 100).toFixed(1) + "%" : "-";
+        }
+
+        chart.update();
+      } catch (err) {
+        console.error("Failed to load results:", err);
+        statusMsg.textContent = "Error loading results.";
+      }
+    }
+
+    document.getElementById("addHostForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const ip = document.getElementById("ipInput").value;
+      try {
+        const res = await fetch(`${API_BASE}/hosts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ip })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          statusMsg.textContent = err.error || "Failed to add host.";
+        } else {
+          statusMsg.textContent = "";
+          document.getElementById("ipInput").value = "";
+          loadHosts();
+        }
+      } catch (err) {
+        statusMsg.textContent = "Error adding host.";
+      }
+    });
+
+    deleteHostBtn.addEventListener("click", async () => {
+      const id = hostSelect.value;
+      if (!id) return;
+      if (!confirm("Delete this host and all its results?")) return;
+      try {
+        await fetch(`${API_BASE}/hosts`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        loadHosts();
+      } catch (err) {
+        statusMsg.textContent = "Error deleting host.";
+      }
+    });
+
+    hostSelect.addEventListener("change", () => {
+      updateChart(hostSelect.value);
+    });
+
+    document.getElementById("rangeSelect").addEventListener("change", () => {
+      if (hostSelect.value) {
+        updateChart(hostSelect.value);
+      }
+    });
+
+    setInterval(() => {
+      if (hostSelect.value) {
+        updateChart(hostSelect.value);
+      }
+    }, 10000);
+
+    loadHosts();
+  </script>
+</body>
+</html>
