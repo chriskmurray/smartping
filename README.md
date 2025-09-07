@@ -12,17 +12,20 @@ It pings hosts at regular intervals, records results in SQLite, and displays lat
 - Fully containerized with Docker
 
 ## About This Project
-This project was built as a learning portfolio piece. I used AI coding assistants to help accelerate development, while focusing on:
+This project was built as a learning portfolio piece. I used AI coding assistants to:
 
-Designing the monitoring approach (ping bursts, median aggregation, data retention)
+- Design the monitoring approach (ping bursts, median aggregation, data retention)  
+- Understand the architecture (backend, frontend, database, containers)  
+- Practice automation and system design skills that apply directly to network engineering  
 
-Understanding the architecture (backend, frontend, database, containers)
+The goal isn’t to showcase polished software engineering, but to demonstrate how I can learn quickly, adapt tools, and apply automation concepts.
 
-Practicing automation and system design skills that apply directly to network engineering work
+## Screenshot
 
-The goal isn’t to showcase polished software engineering, but to demonstrate how I can apply networking knowledge, automation, and modern tools like AI to quickly build useful systems.
+![SmartPing Dashboard](assets/smartping.png)
 
 ## Usage
+
 
 ```bash
 # Clone the repo
