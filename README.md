@@ -20,5 +20,3 @@ cd smartping
 
 # Start containers
 docker compose up --build
-
-ing knowledge, automation, and modern tools like AI to quickly build useful systems.
